@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Catflix</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #000; font-family: Arial; }
+        img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+        .reload { position: absolute; top: 20px; right: 20px; color: white; text-decoration: none; background: rgba(255,255,255,0.1); padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <a href="/" class="reload">🎲 New Cat</a>
+    <img id="cat" src="" alt="Loading random cat...">
+    
+    <script>
+        let cats = [];
+        
+        async function loadCatList() {
+            try {
+                const response = await fetch('/cats/?list-type=2');
+                const xml = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(xml, 'text/xml');
+                const keys = doc.querySelectorAll('Key');
+                cats = Array.from(keys).map(key => key.textContent);
+                showRandomCat();
+            } catch (e) {
+                console.error('Failed to load cats:', e);
+                // Fallback to common names
+                cats = ['cat1.jpg', 'cat2.jpg', 'cat3.jpg'];
+                showRandomCat();
+            }
+        }
+        
+        function showRandomCat() {
+            if (cats.length === 0) return;
+            const randomCat = cats[Math.floor(Math.random() * cats.length)];
+            document.getElementById('cat').src = `/cats/${randomCat}`;
+        }
+        
+        loadCatList();
+    </script>
+</body>
+</html>

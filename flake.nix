@@ -22,39 +22,18 @@
         };
         services.nginx = {
           enable = true;
+          package = pkgs.openresty;
           virtualHosts.${config.networking.fqdn} = {
             forceSSL = true;
             enableACME = true;
             locations = {
-              "/" = {
-                extraConfig = ''
-                  # Redis cache configuration
-                  set $key $uri;
-
-                  # Try Redis first
-                  redis2_query get $key;
-                  redis2_pass localhost:${
-                    builtins.toString config.services.redis.port
-                  };
-
-                  # If cache miss, proxy to MinIO
-                  error_page 404 = @origin;
-                '';
-              };
-
-              "@origin" = {
-                proxyPass = "http://localhost:9000"; # MinIO
-                extraConfig = ''
-                  # Cache successful responses in Redis
-                  redis2_query set $key $upstream_response_body;
-                  redis2_pass localhost:${
-                    builtins.toString config.services.redis.port
-                  };
-
-                  # Add cache headers
-                  add_header X-Cache-Status $upstream_cache_status;
-                '';
-              };
+              "/" =
+                let catflixRoot = pkgs.writeTextDir "www/index.html" ./index.html;
+                in {
+                  root = "${catflixRoot}/www";
+                  index = "index.html";
+                };
+              "/cats/" = self.lib.mkProxy "http://localhost:9000/cats/";
             };
           };
         };
@@ -70,22 +49,7 @@
             ];
           }];
         }];
-      };
 
-      redis = { config, pkgs, lib, ... }: {
-        services.redis.enable = true;
-        services.prometheus.exporters.redis.enable = true;
-        services.prometheus.scrapeConfigs = [{
-          job_name = "redis";
-          static_configs = [{
-            targets = [
-              "${config.networking.fqdn}:${
-                builtins.toString
-                config.services.prometheus.exporters.redis.port
-              }"
-            ];
-          }];
-        }];
       };
 
       minio = { config, pkgs, lib, ... }: {
@@ -94,7 +58,7 @@
           browser = true;
         };
         services.prometheus.scrapeConfigs = [{
-          job_name = "minio-job";
+          job_name = "minio";
           bearer_token = "TOKEN";
           metrics_path = "/minio/v2/metrics/cluster";
           scheme = "https";
@@ -116,6 +80,19 @@
               serve_from_sub_path = true;
             };
           };
+          provision = {
+            enable = true;
+            datasources.settings = {
+              apiVersion = 1;
+              datasources = [{
+                name = "prometheus";
+                type = "prometheus";
+                url = "http://localhost:${
+                    builtins.toString config.services.prometheus.port
+                  }";
+              }];
+            };
+          };
         };
         services.nginx.virtualHosts."${config.networking.fqdn}" = {
           locations."/grafana/" = self.lib.mkProxy "http://${
@@ -134,16 +111,11 @@
       };
 
       catpix = { name, nodes, ... }: {
-        deployment = {
-          targetHost = "34.29.30.70";
-          targetUser = "itihas";
-        };
-        nix.settings.trusted-users =  [ "itihas" ];
+        deployment = { targetHost = "34.29.30.70"; };
         networking.fqdn = "catpix.itihas.xyz";
         imports = with self.nixosModules; [
           "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
           nginx
-          redis
           minio
           monitoring
         ];
