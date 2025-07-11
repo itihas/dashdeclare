@@ -133,12 +133,13 @@
         };
       };
 
-      catflix = { name, nodes, ... }: {
+      catpix = { name, nodes, ... }: {
         deployment = {
           targetHost = "34.29.30.70";
           targetUser = "itihas";
         };
-        networking.fqdn = "catflix.itihas.xyz";
+        nix.settings.trusted-users =  [ "itihas" ];
+        networking.fqdn = "catpix.itihas.xyz";
         imports = with self.nixosModules; [
           "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
           nginx
