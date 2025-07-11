@@ -55,7 +55,7 @@
           static_configs = [{
             targets = [
               "localhost:${
-                builtins.toString
+                toString
                 config.services.prometheus.exporters.nginx.port
               }"
             ];
@@ -102,16 +102,19 @@
                 name = "prometheus";
                 type = "prometheus";
                 url = "http://localhost:${
-                    builtins.toString config.services.prometheus.port
+                    toString config.services.prometheus.port
                   }";
               }];
             };
           };
         };
         services.nginx.virtualHosts."${config.networking.fqdn}" = {
-          locations."/grafana/" = self.lib.mkProxy "http://${
+          locations = {
+            "/grafana/" = self.lib.mkProxy "http://${
               toString config.services.grafana.settings.server.http_addr
-            }:${toString config.services.grafana.settings.server.http_port}";
+          }:${toString config.services.grafana.settings.server.http_port}";
+            "/prometheus/" = self.lib.mkProxy "http://localhost:${toString config.services.prometheus.port}";
+          };
         };
       };
     };
