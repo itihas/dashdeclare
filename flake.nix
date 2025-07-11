@@ -12,6 +12,15 @@
         proxyWebsockets = true;
         recommendedProxySettings = true;
       };
+      mkProvider = name: path: {
+        inherit name;
+        orgId = 1;
+        folder = "";
+        type = "file";
+        disableDeletion = true;
+        updateIntervalSeconds = 10;
+        options.path = path;
+      };
     };
 
     nixosModules = {
@@ -23,16 +32,18 @@
         services.nginx = {
           enable = true;
           package = pkgs.openresty;
+          statusPage = true;
           virtualHosts.${config.networking.fqdn} = {
             forceSSL = true;
             enableACME = true;
             locations = {
-              "/" =
-                let catflixRoot = pkgs.writeTextDir "www/index.html" ./index.html;
-                in {
-                  root = "${catflixRoot}/www";
-                  index = "index.html";
-                };
+              "/" = let
+                catpixRoot = pkgs.writeTextDir "/index.html"
+                  (builtins.readFile ./index.html);
+              in {
+                root = catpixRoot;
+                index = "index.html";
+              };
               "/cats/" = self.lib.mkProxy "http://localhost:9000/cats/";
             };
           };
@@ -40,16 +51,18 @@
         services.prometheus.exporters.nginx.enable = true;
         services.prometheus.scrapeConfigs = [{
           job_name = "nginx";
+          scheme = "https";
           static_configs = [{
             targets = [
-              "${config.networking.fqdn}:${
+              "localhost:${
                 builtins.toString
                 config.services.prometheus.exporters.nginx.port
               }"
             ];
           }];
         }];
-
+        services.grafana.provision.dashboards.settings.providers =
+          [ (self.lib.mkProvider "nginx" ./dashboards/nginx.json) ];
       };
 
       minio = { config, pkgs, lib, ... }: {
@@ -57,12 +70,13 @@
           enable = true;
           browser = true;
         };
+        systemd.services.minio.environment.MINIO_PROMETHEUS_AUTH_TYPE =
+          "public";
         services.prometheus.scrapeConfigs = [{
           job_name = "minio";
-          bearer_token = "TOKEN";
           metrics_path = "/minio/v2/metrics/cluster";
           scheme = "https";
-          static_configs = [{ targets = [ config.networking.fqdn ]; }];
+          static_configs = [{ targets = [ "localhost" ]; }];
         }];
       };
       monitoring = { config, pkgs, lib, ... }: {
@@ -113,6 +127,7 @@
       catpix = { name, nodes, ... }: {
         deployment = { targetHost = "34.29.30.70"; };
         networking.fqdn = "catpix.itihas.xyz";
+        services.prometheus.exporters.node.enable = true;
         imports = with self.nixosModules; [
           "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
           nginx
