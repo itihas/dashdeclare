@@ -112,7 +112,6 @@
         services.nginx.virtualHosts."${config.networking.fqdn}" = {
           locations = {
             "/grafana/" = self.lib.mkProxy "http://localhost:${toString config.services.grafana.settings.server.http_port}";
-            "/prometheus/" = self.lib.mkProxy "http://localhost:${toString config.services.prometheus.port}";
           };
         };
       };
