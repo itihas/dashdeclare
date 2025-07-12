@@ -24,7 +24,7 @@
     };
 
     nixosModules = {
-      nginx = { config, pkgs, lib, ... }: {
+      catpix-nginx = { config, pkgs, lib, ... }: {
         security.acme = {
           acceptTerms = true;
           defaults.email = "sahiti93@gmail.com";
@@ -51,7 +51,6 @@
         services.prometheus.exporters.nginx.enable = true;
         services.prometheus.scrapeConfigs = [{
           job_name = "nginx";
-          scheme = "https";
           static_configs = [{
             targets = [
               "localhost:${
@@ -65,7 +64,7 @@
           [ (self.lib.mkProvider "nginx" ./dashboards/nginx.json) ];
       };
 
-      minio = { config, pkgs, lib, ... }: {
+      catpix-minio = { config, pkgs, lib, ... }: {
         services.minio = {
           enable = true;
           browser = true;
@@ -75,11 +74,10 @@
         services.prometheus.scrapeConfigs = [{
           job_name = "minio";
           metrics_path = "/minio/v2/metrics/cluster";
-          scheme = "https";
-          static_configs = [{ targets = [ "localhost" ]; }];
+          static_configs = [{ targets = [ "localhost:9000" ]; }];
         }];
       };
-      monitoring = { config, pkgs, lib, ... }: {
+      catpix-monitoring = { config, pkgs, lib, ... }: {
         services.prometheus.enable = true;
         services.grafana = {
           enable = true;
@@ -110,9 +108,7 @@
         };
         services.nginx.virtualHosts."${config.networking.fqdn}" = {
           locations = {
-            "/grafana/" = self.lib.mkProxy "http://${
-              toString config.services.grafana.settings.server.http_addr
-          }:${toString config.services.grafana.settings.server.http_port}";
+            "/grafana/" = self.lib.mkProxy "http://localhost:${toString config.services.grafana.settings.server.http_port}";
             "/prometheus/" = self.lib.mkProxy "http://localhost:${toString config.services.prometheus.port}";
           };
         };
@@ -133,9 +129,9 @@
         services.prometheus.exporters.node.enable = true;
         imports = with self.nixosModules; [
           "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
-          nginx
-          minio
-          monitoring
+          catpix-nginx
+          catpix-minio
+          catpix-monitoring
         ];
       };
     };
