@@ -54,8 +54,7 @@
           static_configs = [{
             targets = [
               "localhost:${
-                toString
-                config.services.prometheus.exporters.nginx.port
+                toString config.services.prometheus.exporters.nginx.port
               }"
             ];
           }];
@@ -111,9 +110,26 @@
         };
         services.nginx.virtualHosts."${config.networking.fqdn}" = {
           locations = {
-            "/grafana/" = self.lib.mkProxy "http://localhost:${toString config.services.grafana.settings.server.http_port}";
+            "/grafana/" = self.lib.mkProxy "http://localhost:${
+                toString config.services.grafana.settings.server.http_port
+              }";
           };
         };
+      };
+
+      catpix-node = { config, ... }: {
+        # node-exporter
+        services.prometheus.exporters.node.enable = true;
+        services.prometheus.scrapeConfigs = [{
+          job_name = "node";
+          static_configs = [{
+            targets =
+              [ "localhost:${toString config.services.prometheus.exporters.node.port}" ];
+          }];
+        }];
+        services.grafana.provision.dashboards.settings.providers =
+          [ (self.lib.mkProvider "node" ./dashboards/node.json) ];
+
       };
     };
 
@@ -128,12 +144,12 @@
       catpix = { name, nodes, ... }: {
         deployment = { targetHost = "34.29.30.70"; };
         networking.fqdn = "catpix.itihas.xyz";
-        services.prometheus.exporters.node.enable = true;
         imports = with self.nixosModules; [
           "${nixpkgs}/nixos/modules/virtualisation/google-compute-image.nix"
           catpix-nginx
           catpix-minio
           catpix-monitoring
+          catpix-node
         ];
       };
     };
