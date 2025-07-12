@@ -76,6 +76,9 @@
           metrics_path = "/minio/v2/metrics/cluster";
           static_configs = [{ targets = [ "localhost:9000" ]; }];
         }];
+        services.grafana.provision.dashboards.settings.providers =
+          [ (self.lib.mkProvider "minio" ./dashboards/minio.json) ];
+
       };
       catpix-monitoring = { config, pkgs, lib, ... }: {
         services.prometheus.enable = true;
